@@ -1,0 +1,48 @@
+version: "3"
+
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    env_file:
+      - ./postgres.env
+
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    command: redis-server --save 20 1 --loglevel warning --requirepass redispasswd
+    volumes:
+      - ./cache:/data
+
+  django:
+    build: ./django/
+    command: bash -c "
+      pipenv run python manage.py makemigrations
+      && pipenv run python manage.py migrate
+      && pipenv run python manage.py collectstatic --noinput
+      && pipenv run uwsgi  --ini django.uwsgi.ini"
+    volumes:
+      - ./django/:/code/
+      - uwsgi_data:/tmp/uwsgi/
+      - web_static:/code/static/
+      - web_static:/var/www/site/assets/
+    env_file:
+      - ./django.env
+    depends_on:
+      - db
+      - cache
+
+  nginx:
+    build: ./nginx/
+    volumes:
+      - uwsgi_data:/tmp/uwsgi/
+      - web_static:/var/www/site/assets/:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - django
+
+volumes:
+  uwsgi_data:
+  web_static:
