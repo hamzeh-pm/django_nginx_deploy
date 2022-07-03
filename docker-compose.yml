@@ -6,7 +6,7 @@ services:
     volumes:
       - ./db:/var/lib/postgresql/data
     env_file:
-      - ./postgres.env
+      - ./envs/db.env
 
   cache:
     image: redis:6.2-alpine
@@ -26,20 +26,23 @@ services:
       - ./django/:/code/
       - uwsgi_data:/tmp/uwsgi/
       - web_static:/code/static/
-      - web_static:/var/www/site/assets/
+      - web_static:/var/www/web/assets/
     env_file:
-      - ./django.env
+      - ./envs/django.env
     depends_on:
       - db
       - cache
 
   nginx:
-    build: ./nginx/
+    build:
+      context: ./nginx/
+      args:
+        CONF_FILE: ${NGINX_CONF}
     volumes:
       - uwsgi_data:/tmp/uwsgi/
-      - web_static:/var/www/site/assets/:ro
+      - web_static:/var/www/web/assets/:ro
     ports:
-      - "8000:8000"
+      - "${NGINX_PORT}:${NGINX_PORT}"
     depends_on:
       - django
 
